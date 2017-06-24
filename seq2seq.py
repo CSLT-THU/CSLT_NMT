@@ -111,7 +111,7 @@ def _extract_argmax_and_embed(embedding,
 
 
 def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_states, cell,
-                      beam_size, output_size=None, loop_function=None,
+                      beam_size, output_size=None, num_layers=1, loop_function=None,
                       dtype=dtypes.float32, scope=None,
                       initial_state_attention=False
                       ):
@@ -166,14 +166,14 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
         batch_size = array_ops.shape(decoder_inputs[0])[0]  # Needed for reshaping.
         attn_length = attention_states.get_shape()[1].value
         attn_size = attention_states.get_shape()[2].value
+        state_size = initial_state.get_shape()[1].value
+        attention_vec_size = attn_size // 2  # Size of query vectors for attention.
 
         hidden = array_ops.reshape(
                 attention_states, [-1, attn_length, 1, attn_size])
 
-        attention_vec_size = attn_size // 2  # Size of query vectors for attention.
-
         # compute the initial hidden state of decoder
-        initial_state = math_ops.tanh(linear(initial_state, attention_vec_size, False,
+        initial_state = math_ops.tanh(linear(initial_state, state_size, False,
                                              weight_initializer=init_ops.random_normal_initializer(0, 0.01, seed=SEED)))
 
         with variable_scope.variable_scope(scope or "attention"):
@@ -218,6 +218,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
         outputs = []
         output = None
         state = initial_state
+        out_state = array_ops.split(1, num_layers, state)[-1]
         prev = None
         symbols = []
         prev_probs = [0]
@@ -242,15 +243,15 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
                     symbols.append(prev_symbol)
 
             # Run the attention mechanism.
-            if i > 0 or (i == 0 and initial_state_attention):
-                attns = attention(state, scope="attention")
+            if i > 0 or (i == 0 and out_state):
+                attns = attention(out_state, scope="attention")
 
             # Run the RNN.
             cinp = array_ops.concat(1, [inp, attns[0]])   # concatenate next input and the context vector
-            state, _ = cell(cinp, state)
+            out_state, state = cell(cinp, state)
 
             with variable_scope.variable_scope("AttnOutputProjection"):
-                output = linear([state] + [cinp], output_size, False)
+                output = linear([out_state] + [cinp], output_size, False)
                 output = array_ops.reshape(output, [-1, output_size // 2, 2])
                 output = math_ops.reduce_max(output, 2)    # maxout
 
@@ -279,7 +280,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
 
 def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_states,
                                 cell, num_symbols, embedding_size, beam_size,
-                                output_size=None, output_projection=None,
+                                output_size=None, output_projection=None, num_layers=1,
                                 feed_previous=False,
                                 update_embedding_for_previous=True,
                                 dtype=dtypes.float32, scope=None,
@@ -352,6 +353,7 @@ def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, att
                                  emb_inp, initial_state, attention_states, cell,
                                  beam_size,
                                  output_size=output_size,
+                                 num_layers=num_layers,
                                  loop_function=loop_function,
                                  initial_state_attention=initial_state_attention)
 
@@ -359,7 +361,7 @@ def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, att
 def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, cell,
                                 num_encoder_symbols, num_decoder_symbols,
                                 embedding_size, beam_size,
-                                output_projection=None,
+                                output_projection=None, num_layers=1,
                                 feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=True):
     """Embedding sequence-to-sequence model with attention.
@@ -422,7 +424,6 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, ce
         # encode source sentences with a bidirectional_rnn encoder
         encoder_outputs, _, encoder_state = rnn.bidirectional_rnn(
                 encoder_cell, encoder_cell, encoder_inputs, sequence_length=encoder_lens, dtype=dtype)
-
         # First calculate a concatenation of encoder outputs.
         top_states = [array_ops.reshape(e, [-1, 1, 2 * cell.output_size])
                       for e in encoder_outputs]
@@ -437,7 +438,7 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, ce
         return embedding_attention_decoder(encoder_mask, decoder_inputs, encoder_state, attention_states, cell,
                                            num_decoder_symbols, embedding_size, beam_size=beam_size,
                                            output_size=output_size, output_projection=output_projection,
-                                           feed_previous=feed_previous,
+                                           num_layers=num_layers, feed_previous=feed_previous,
                                            initial_state_attention=initial_state_attention)
 
 

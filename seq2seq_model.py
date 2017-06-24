@@ -115,6 +115,7 @@ class Seq2SeqModel(object):
                     embedding_size=hidden_edim,
                     beam_size=beam_size,
                     output_projection=output_projection,
+                    num_layers=num_layers,
                     feed_previous=do_decode)
 
         # Feeds for inputs.
