@@ -56,7 +56,7 @@ tf.app.flags.DEFINE_integer("batch_size", 80,
 tf.app.flags.DEFINE_integer("hidden_units", 1000, "Size of hidden units for each layer.")
 tf.app.flags.DEFINE_integer("hidden_edim", 620, "the dimension of word embedding.")
 tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
-tf.app.flags.DEFINE_integer("keep_prob", 1.0, "The keep probability used for dropout.")
+tf.app.flags.DEFINE_integer("keep_prob", 0.8, "The keep probability used for dropout.")
 tf.app.flags.DEFINE_integer("src_vocab_size", 30000, "Source vocabulary size.")
 tf.app.flags.DEFINE_integer("trg_vocab_size", 30000, "French vocabulary size.")
 tf.app.flags.DEFINE_string("data_dir", "./data", "Data directory.")
@@ -102,8 +102,8 @@ def read_data(source_path, target_path, max_size=None):
                 if counter % 100000 == 0:
                     print("  reading data line %d" % counter)
                     sys.stdout.flush()
-                source_ids = [int(x) for x in source.split()][:48]
-                target_ids = [int(x) for x in target.split()][:48]
+                source_ids = [int(x) for x in source.split()]
+                target_ids = [int(x) for x in target.split()]
                 source_ids.append(data_utils.EOS_ID)
                 target_ids.append(data_utils.EOS_ID)
                 for bucket_id, (source_size, target_size) in enumerate(_buckets):

@@ -81,7 +81,7 @@ Model parameters and training settings can be set by command-line arguments, as 
 --hidden_units: Size of hidden units for each layer, default is 1000.
 --hidden_edim: Dimension of word embedding, default is 620.
 --num_layers: Number of layers of RNN, default is 1.
---keep_prob: The keep probability used for dropout, default is 1.0.
+--keep_prob: The keep probability used for dropout, default is 0.8.
 --src_vocab_size: Vocabulary size of source language, default is 30000.
 --trg_vocab_size: Vocabulary size of target language, default is 30000.
 --data_dir: Data directory, default is './data'.
