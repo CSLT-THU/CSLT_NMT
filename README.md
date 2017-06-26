@@ -1,14 +1,18 @@
-# CSLT_NMT: An Open Source Toolkit for Neural Machine Translation
+# ViVi_NMT: An Open Source Toolkit for Neural Machine Translation
 ## Contents
 * [Introduction](#introduction)
+* [Introduction](#version)
 * [User Manual](#user-manual)
 * [License](#license)
 * [Development Team](#development-Team)
 * [Contact](#contact)
 
+## Version
+1.0
+
 ## Introduction
 
-CSLT_NMT is a neural machine translation toolkit developed by [Center of Speech and Language Technology](http://cslt.riit.tsinghua.edu.cn/). 
+ViVi_NMT(v1.0) is a neural machine translation toolkit developed by [Center of Speech and Language Technology](http://cslt.riit.tsinghua.edu.cn/). 
 
 On top of [Tensorflow]( https://www.tensorflow.org/), this toolkit mainly reproduced the RNNsearch model proposed by Bahdanau et al.[1] 
 
