@@ -72,7 +72,7 @@ tf.app.flags.DEFINE_integer("beam_size", 1, "The size of beam search. Do greedy 
 FLAGS = tf.app.flags.FLAGS
 
 # We use a number of buckets and pad to the closest one for efficiency.
-_buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (50, 50)]
+_buckets = [(10, 10), (20, 20), (30, 30), (40, 40), (51, 51)]
 
 
 def read_data(source_path, target_path, max_size=None):
