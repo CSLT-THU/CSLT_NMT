@@ -1,7 +1,7 @@
 # ViVi_NMT: An Open Source Toolkit for Neural Machine Translation
 ## Contents
 * [Introduction](#introduction)
-* [Introduction](#version)
+* [Version](#version)
 * [User Manual](#user-manual)
 * [License](#license)
 * [Development Team](#development-Team)
