@@ -8,11 +8,11 @@
 * [Contact](#contact)
 
 ## Version
-1.0
+0.10
 
 ## Introduction
 
-ViVi_NMT(v1.0) is a neural machine translation toolkit developed by [Center of Speech and Language Technology](http://cslt.riit.tsinghua.edu.cn/). 
+ViVi_NMT(v0.10) is a neural machine translation toolkit developed by [Center of Speech and Language Technology](http://cslt.riit.tsinghua.edu.cn/). 
 
 On top of [Tensorflow]( https://www.tensorflow.org/), this toolkit mainly reproduced the RNNsearch model proposed by Bahdanau et al.[1] 
 
