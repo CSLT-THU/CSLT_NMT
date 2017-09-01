@@ -1,7 +1,7 @@
 # ViVi_NMT: An Open Source Toolkit for Neural Machine Translation
 ## Contents
-* [Introduction](#introduction)
 * [Version](#version)
+* [Introduction](#introduction)
 * [User Manual](#user-manual)
 * [License](#license)
 * [Development Team](#development-Team)
@@ -12,7 +12,7 @@
 
 ## Introduction
 
-ViVi_NMT(v0.10) is a neural machine translation toolkit developed by [Center of Speech and Language Technology](http://cslt.riit.tsinghua.edu.cn/). 
+ViVi_NMT(v0.10) is a neural machine translation toolkit developed by [Center for Speech and Language Technologies](http://cslt.riit.tsinghua.edu.cn/). 
 
 On top of [Tensorflow]( https://www.tensorflow.org/), this toolkit mainly reproduced the RNNsearch model proposed by Bahdanau et al.[1] 
 
@@ -102,17 +102,19 @@ LDA corpora, and sample development and testing from NIST2005 and NIST 2003 resp
 To test a trained model, for example, to test the 10000th checkpoint, run the command below.
 
 ```
-python ./translate.py --model translate.ckpt- --decode --beam_size 10 < data/test.src > test.trans
+python ./translate.py --model translate.ckpt-10000 --decode --beam_size 10 < data/test.src > test.trans
 perl ./multi-bleu.perl data/test.trg < test.trans
 ```
+Note that,if there are multiple target files such as test.trg0, test.trg1, test.trg2, and test.trg3, users need to set the value to the shared prefix test.trg.
 
-Model parameters should be the same settings when training, and other parameters for decoding are as follows.
+Model parameters should be the same as settings when training, and other parameters for decoding are as follows.
 
 ```
 --decode: True or False. Set to True for interactive decoding, default is False.
 --model: The checkpoint model to load.
 --beam_size: The size of beam search, default is 1, which represents a greedy search.
 ```
+
 
 ##
 
