@@ -1,7 +1,7 @@
 # ViVi_NMT: An Open Source Toolkit for Neural Machine Translation
 ## Contents
-* [Introduction](#introduction)
 * [Version](#version)
+* [Introduction](#introduction)
 * [User Manual](#user-manual)
 * [License](#license)
 * [Development Team](#development-Team)
@@ -12,11 +12,11 @@
 
 ## Introduction
 
-ViVi_NMT(v1.0) is a neural machine translation toolkit developed by [Center of Speech and Language Technology](http://cslt.riit.tsinghua.edu.cn/). 
+ViVi_NMT(v1.0) is a neural machine translation toolkit developed by [Center for Speech and Language Technologies](http://cslt.riit.tsinghua.edu.cn/). 
 
-On top of [Tensorflow]( https://www.tensorflow.org/), this toolkit mainly reproduced the RNNsearch model proposed by Bahdanau et al.[1] 
+On top of Tensorflow, this toolkit mainly reproduced the RNNsearch model proposed by Bahdanau et al.[1]
 
-Note that, this code is modified on the original seq2seq model code from [Tensorflow0.10](https://github.com/tensorflow/tensorflow/tree/r0.10), and the 'multi_bleu.perl' script is downloaded from [Moses](https://github.com/moses-smt/mosesdecoder/tree/master/scripts/generic).
+Note that, this code is modified on the ViVi_NMT(v0.1) code（upgrade code to make it support tensorflow 1.0 and later version）, and the 'multi_bleu.perl' script is downloaded from Moses.
 
 
 ## User Manual
@@ -31,42 +31,32 @@ Note that, this code is modified on the original seq2seq model code from [Tensor
 We recommand to use GPUs:
 
 * NVIDIA GPUs 
-* cuda 7.5
+* cuda 8.0
 
 #### Installing Prerequisites
 
-##### CUDA 7.5 environment
-Assume CUDA 7.5 has been installed in "/usr/local/cuda-7.5/", then environment variables need to be set:
+##### CUDA 8.0 environment
+Assume CUDA 8.0 has been installed in "/usr/local/cuda-8.0/", then environment variables need to be set:
 
 ```
-export PATH=/usr/local/cuda-7.5/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda-7.5/lib64:$LD_LIBRARY_PATH 
+export PATH=/usr/local/cuda-8.0/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64:$LD_LIBRARY_PATH 
 ```
-##### Tensorflow 0.10
-To have tensorflow 0.10 installed, serval methods can be applied. Here, we only introduce the installation through virtualenv. And we install the tensorflow-gpu, if you choose to use CPU, please install tensorflow of cpu.
+
+##### Tensorflow 1.0
+To have tensorflow 1.0 installed, serval methods can be applied. Here, we only introduce the installation through virtualenv. And we install the tensorflow-gpu, if you choose to use CPU, please install tensorflow of cpu.
 
 ```
 pip install virtualenv --user
-virtualenv --system-site-packages tf0.10  
-source tf0.10/bin/activate
-export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow-0.10.0-cp27-none-linux_x86_64.whl
+virtualenv --system-site-packages tf1.0  
+source tf1.0/bin/activate
+export TF_BINARY_URL=https://mirrors.tuna.tsinghua.edu.cn/tensorflow/linux/gpu/tensorflow_gpu-1.0.0-cp27-none-linux_x86_64.whl
 pip install --upgrade $TF_BINARY_URL
 ```
+
 ##### Test installation
 Get into python console, and import tensorflow. If no error is encountered, the installation is successful.
 
-```
-Python 2.7.5 (default, Nov  6 2016, 00:28:07) 
-[GCC 4.8.5 20150623 (Red Hat 4.8.5-11)] on linux2
-Type "help", "copyright", "credits" or "license" for more information.
->>> import tensorflow 
-I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library libcublas.so locally
-I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library libcudnn.so locally
-I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library libcufft.so locally
-I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library libcuda.so.1 locally
-I tensorflow/stream_executor/dso_loader.cc:108] successfully opened CUDA library libcurand.so locally
->>> 
-```
 
 ### Train
 To train the model, run "translate.py" directly with default settings.
@@ -99,20 +89,22 @@ Note that, we provide a sampled Chinese-English dataset in './data', with 10000 
 LDA corpora, and sample development and testing from NIST2005 and NIST 2003 respectively.
 
 ### Test
-To test a trained model, for example, to test the 10000th checkpoint, run the command below.
+To test a trained model, for example, the 10000th checkpoint, run the command below.
 
 ```
-python ./translate.py --model translate.ckpt- --decode --beam_size 10 < data/test.src > test.trans
+python ./translate.py --model translate.ckpt-10000 --decode --beam_size 10 < data/test.src > test.trans
 perl ./multi-bleu.perl data/test.trg < test.trans
 ```
+Note that,if there are multiple target files such as test.trg0, test.trg1, test.trg2, and test.trg3, users need to set the value to the shared prefix test.trg.
 
-Model parameters should be the same settings when training, and other parameters for decoding are as follows.
+Model parameters should be the same as settings when training, and other parameters for decoding are as follows.
 
 ```
 --decode: True or False. Set to True for interactive decoding, default is False.
 --model: The checkpoint model to load.
 --beam_size: The size of beam search, default is 1, which represents a greedy search.
 ```
+
 
 ##
 
@@ -123,7 +115,7 @@ Open source licensing is under the Apache License 2.0, which allows free use for
 
 Project leaders: Dong Wang, Feng Yang
 
-Project members: Shiyue Zhang, Jiyuan Zhang, Andi Zhang, Aodong Li, Shipan Ren
+Project members: Shiyue Zhang, Shipan Ren, Jiyuan Zhang, Andi Zhang, Aodong Li
 
 ## Contact
 

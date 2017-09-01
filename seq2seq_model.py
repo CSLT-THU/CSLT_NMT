@@ -42,6 +42,7 @@ from tensorflow.python.ops import array_ops
 import rnn_cell
 import data_utils
 import seq2seq
+from tensorflow.core.protobuf import saver_pb2
 
 
 class Seq2SeqModel(object):
@@ -84,7 +85,7 @@ class Seq2SeqModel(object):
         self.batch_size = batch_size
         self.learning_rate = tf.Variable(float(learning_rate), trainable=False)
         self.learning_rate_decay_op = self.learning_rate.assign(
-                self.learning_rate * learning_rate_decay_factor)
+            self.learning_rate * learning_rate_decay_factor)
         self.global_step = tf.Variable(0, trainable=False)
 
         w = tf.get_variable("proj_w", [hidden_units // 2, self.target_vocab_size],
@@ -96,8 +97,7 @@ class Seq2SeqModel(object):
         def softmax_loss_function(logit, target):  # loss function of seq2seq model
             logit = nn_ops.xw_plus_b(logit, output_projection[0], output_projection[1])
             target = array_ops.reshape(target, [-1])
-            return nn_ops.sparse_softmax_cross_entropy_with_logits(
-                    logit, target)
+            return nn_ops.sparse_softmax_cross_entropy_with_logits(labels=target, logits=logit)
 
         single_cell = rnn_cell.GRUCell(hidden_units)
         cell = single_cell
@@ -109,14 +109,14 @@ class Seq2SeqModel(object):
         # The seq2seq function: we use embedding for the input and attention.
         def seq2seq_f(encoder_inputs, encoder_mask, decoder_inputs, do_decode):
             return seq2seq.embedding_attention_seq2seq(
-                    encoder_inputs, encoder_mask, decoder_inputs, cell,
-                    num_encoder_symbols=source_vocab_size,
-                    num_decoder_symbols=target_vocab_size,
-                    embedding_size=hidden_edim,
-                    beam_size=beam_size,
-                    output_projection=output_projection,
-                    num_layers=num_layers,
-                    feed_previous=do_decode)
+                encoder_inputs, encoder_mask, decoder_inputs, cell,
+                num_encoder_symbols=source_vocab_size,
+                num_decoder_symbols=target_vocab_size,
+                embedding_size=hidden_edim,
+                beam_size=beam_size,
+                output_projection=output_projection,
+                num_layers=num_layers,
+                feed_previous=do_decode)
 
         # Feeds for inputs.
         self.encoder_inputs = []
@@ -141,15 +141,15 @@ class Seq2SeqModel(object):
         # Training outputs and losses.
         if forward_only:
             self.outputs, self.losses, self.symbols = seq2seq.model_with_buckets(
-                    self.encoder_inputs, self.encoder_mask, self.decoder_inputs, targets,
-                    self.target_weights, buckets, lambda x, y, z: seq2seq_f(x, y, z, True),
-                    softmax_loss_function=softmax_loss_function)
+                self.encoder_inputs, self.encoder_mask, self.decoder_inputs, targets,
+                self.target_weights, buckets, lambda x, y, z: seq2seq_f(x, y, z, True),
+                softmax_loss_function=softmax_loss_function)
         else:
             self.outputs, self.losses, self.symbols = seq2seq.model_with_buckets(
-                    self.encoder_inputs, self.encoder_mask, self.decoder_inputs, targets,
-                    self.target_weights, buckets,
-                    lambda x, y, z: seq2seq_f(x, y, z, False),
-                    softmax_loss_function=softmax_loss_function)
+                self.encoder_inputs, self.encoder_mask, self.decoder_inputs, targets,
+                self.target_weights, buckets,
+                lambda x, y, z: seq2seq_f(x, y, z, False),
+                softmax_loss_function=softmax_loss_function)
 
         # Gradients and SGD update operation for training the model.
         params_to_update = tf.trainable_variables()
@@ -165,9 +165,9 @@ class Seq2SeqModel(object):
                                                                  max_gradient_norm)
                 self.gradient_norms.append(norm)
                 self.updates.append(opt.apply_gradients(
-                        zip(clipped_gradients, params_to_update), global_step=self.global_step))
+                    zip(clipped_gradients, params_to_update), global_step=self.global_step))
 
-        self.saver = tf.train.Saver(tf.all_variables(), max_to_keep=1000,  # keep all checkpoints
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=1000,  # keep all checkpoints
                                     keep_checkpoint_every_n_hours=6)
 
     def step(self, session, encoder_inputs, encoder_mask, decoder_inputs, target_weights,
@@ -276,14 +276,14 @@ class Seq2SeqModel(object):
         # Batch encoder inputs are just re-indexed encoder_inputs.
         for length_idx in xrange(encoder_size):
             batch_encoder_inputs.append(
-                    np.array([encoder_inputs[batch_idx][length_idx]
-                              for batch_idx in xrange(self.batch_size)], dtype=np.int32))
+                np.array([encoder_inputs[batch_idx][length_idx]
+                          for batch_idx in xrange(self.batch_size)], dtype=np.int32))
 
         # Batch decoder inputs are re-indexed decoder_inputs, we create weights.
         for length_idx in xrange(decoder_size):
             batch_decoder_inputs.append(
-                    np.array([decoder_inputs[batch_idx][length_idx]
-                              for batch_idx in xrange(self.batch_size)], dtype=np.int32))
+                np.array([decoder_inputs[batch_idx][length_idx]
+                          for batch_idx in xrange(self.batch_size)], dtype=np.int32))
 
             # Create target_weights to be 0 for targets that are padding.
             batch_weight = np.ones(self.batch_size, dtype=np.float32)

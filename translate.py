@@ -117,26 +117,25 @@ def read_data(source_path, target_path, max_size=None):
 def create_model(session, forward_only, ckpt_file=None):
     """Create translation model and initialize or load parameters from ckpt_file."""
     model = seq2seq_model.Seq2SeqModel(
-            FLAGS.src_vocab_size, FLAGS.trg_vocab_size, _buckets,
-            FLAGS.hidden_edim, FLAGS.hidden_units,
-            FLAGS.num_layers, FLAGS.keep_prob, FLAGS.max_gradient_norm,
-            FLAGS.batch_size, FLAGS.learning_rate,
-            FLAGS.learning_rate_decay_factor, FLAGS.beam_size,
-            forward_only=forward_only)
+        FLAGS.src_vocab_size, FLAGS.trg_vocab_size, _buckets,
+        FLAGS.hidden_edim, FLAGS.hidden_units,
+        FLAGS.num_layers, FLAGS.keep_prob, FLAGS.max_gradient_norm,
+        FLAGS.batch_size, FLAGS.learning_rate,
+        FLAGS.learning_rate_decay_factor, FLAGS.beam_size,
+        forward_only=forward_only)
     if ckpt_file:
         model_path = os.path.join(FLAGS.train_dir, ckpt_file)
-        if tf.gfile.Exists(model_path):
-            sys.stderr.write("Reading model parameters from %s\n" % model_path)
-            sys.stderr.flush()
-            model.saver.restore(session, model_path)
+        sys.stderr.write("Reading model parameters from %s\n" % model_path)
+        sys.stderr.flush()
+        model.saver.restore(session, model_path)
     else:
         ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
-        if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
+        if ckpt:
             print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
             model.saver.restore(session, ckpt.model_checkpoint_path)
         else:
             print("Created model with fresh parameters.")
-            session.run(tf.initialize_all_variables())
+            session.run(tf.global_variables_initializer())
     return model
 
 
@@ -144,7 +143,7 @@ def train():
     """Train a translation model"""
     print("Preparing training and dev data in %s" % FLAGS.data_dir)
     src_train, trg_train, src_dev, trg_dev, src_vocab_path, trg_vocab_path = data_utils.prepare_data(
-            FLAGS.data_dir, FLAGS.src_vocab_size, FLAGS.trg_vocab_size)
+        FLAGS.data_dir, FLAGS.src_vocab_size, FLAGS.trg_vocab_size)
 
     src_vocab, rev_src_vocab = data_utils.initialize_vocabulary(src_vocab_path)
     trg_vocab, rev_trg_vocab = data_utils.initialize_vocabulary(trg_vocab_path)
@@ -188,7 +187,7 @@ def train():
             # Get a batch and make a step.
             start_time = time.time()
             encoder_inputs, encoder_mask, decoder_inputs, target_weights = model.get_batch(
-                    train_set, bucket_id)
+                train_set, bucket_id)
 
             _, step_loss, _ = model.step(sess, encoder_inputs, encoder_mask, decoder_inputs,
                                          target_weights, bucket_id, False)
@@ -218,7 +217,7 @@ def train():
                         print("  eval: empty bucket %d" % (bucket_id))
                         continue
                     encoder_inputs, encoder_mask, decoder_inputs, target_weights = model.get_batch(
-                            dev_set, bucket_id)
+                        dev_set, bucket_id)
                     _, eval_loss, _ = model.step(sess, encoder_inputs, encoder_mask, decoder_inputs,
                                                  target_weights, bucket_id, True)
                     eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
@@ -255,7 +254,7 @@ def decode():
                              if _buckets[b][0] > len(token_ids)])
             # Get a 1-element batch to feed the sentence to the model.
             encoder_inputs, encoder_mask, decoder_inputs, target_weights = model.get_batch(
-                    {bucket_id: [(token_ids, [])]}, bucket_id)
+                {bucket_id: [(token_ids, [])]}, bucket_id)
             # Get output logits for the sentence.
             _, _, output_logits = model.step(sess, encoder_inputs, encoder_mask, decoder_inputs,
                                              target_weights, bucket_id, True)
