@@ -179,8 +179,8 @@ class RNNCell(object):
             state_size_flat = nest.flatten(state_size)
             zeros_flat = [
                 array_ops.zeros(
-                        array_ops.pack(_state_size_with_prefix(s, prefix=[batch_size])),
-                        dtype=dtype)
+                    array_ops.stack(_state_size_with_prefix(s, prefix=[batch_size])),
+                    dtype=dtype)
                 for s in state_size_flat]
             for s, z in zip(state_size_flat, zeros_flat):
                 z.set_shape(_state_size_with_prefix(s, prefix=[None]))
@@ -188,7 +188,7 @@ class RNNCell(object):
                                           flat_sequence=zeros_flat)
         else:
             zeros_size = _state_size_with_prefix(state_size, prefix=[batch_size])
-            zeros = array_ops.zeros(array_ops.pack(zeros_size), dtype=dtype)
+            zeros = array_ops.zeros(array_ops.stack(zeros_size), dtype=dtype)
             zeros.set_shape(_state_size_with_prefix(state_size, prefix=[None]))
 
         return zeros
@@ -240,9 +240,9 @@ class GRUCell(RNNCell):
         """Gated recurrent unit (GRU) with nunits cells."""
         with vs.variable_scope(scope or type(self).__name__):  # "GRUCell"
             with vs.variable_scope("Gates"):  # Reset gate and update gate.
-                r, u = array_ops.split(1, 2, _linear2([inputs, state],
-                                                      2 * self._num_units, False,
-                                                      weight_initializer=self._weight_initializer))
+                r, u = array_ops.split(_linear2([inputs, state],
+                                                2 * self._num_units, False,
+                                                weight_initializer=self._weight_initializer), 2, 1)
                 r, u = sigmoid(r), sigmoid(u)
             with vs.variable_scope("Candidate"):
                 c = self._activation(_linear2([inputs, r * state],
@@ -325,11 +325,11 @@ class BasicLSTMCell(RNNCell):
             if self._state_is_tuple:
                 c, h = state
             else:
-                c, h = array_ops.split(1, 2, state)
+                c, h = array_ops.split(state, 2, 1)
             concat = _linear([inputs, h], 4 * self._num_units, True)
 
             # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-            i, j, f, o = array_ops.split(1, 4, concat)
+            i, j, f, o = array_ops.split(concat, 4, 1)
 
             new_c = (c * sigmoid(f + self._forget_bias) + sigmoid(i) *
                      self._activation(j))
@@ -338,7 +338,7 @@ class BasicLSTMCell(RNNCell):
             if self._state_is_tuple:
                 new_state = LSTMStateTuple(new_c, new_h)
             else:
-                new_state = array_ops.concat(1, [new_c, new_h])
+                new_state = array_ops.concat([new_c, new_h], 1)
             return new_h, new_state
 
 
@@ -354,7 +354,7 @@ def _get_concat_variable(name, shape, dtype, num_shards):
         if value.name == concat_full_name:
             return value
 
-    concat_variable = array_ops.concat(0, sharded_variable, name=concat_name)
+    concat_variable = array_ops.concat(sharded_variable, 0, name=concat_name)
     ops.add_to_collection(ops.GraphKeys.CONCATENATED_VARIABLES,
                           concat_variable)
     return concat_variable
@@ -509,26 +509,26 @@ class LSTMCell(RNNCell):
         with vs.variable_scope(scope or type(self).__name__,
                                initializer=self._initializer):  # "LSTMCell"
             concat_w = _get_concat_variable(
-                    "W", [input_size.value + num_proj, 4 * self._num_units],
-                    dtype, self._num_unit_shards)
+                "W", [input_size.value + num_proj, 4 * self._num_units],
+                dtype, self._num_unit_shards)
 
             b = vs.get_variable(
-                    "B", shape=[4 * self._num_units],
-                    initializer=array_ops.zeros_initializer, dtype=dtype)
+                "B", shape=[4 * self._num_units],
+                initializer=array_ops.zeros_initializer, dtype=dtype)
 
             # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-            cell_inputs = array_ops.concat(1, [inputs, m_prev])
+            cell_inputs = array_ops.concat([inputs, m_prev], 1)
             lstm_matrix = nn_ops.bias_add(math_ops.matmul(cell_inputs, concat_w), b)
-            i, j, f, o = array_ops.split(1, 4, lstm_matrix)
+            i, j, f, o = array_ops.split(lstm_matrix, 4, 1)
 
             # Diagonal connections
             if self._use_peepholes:
                 w_f_diag = vs.get_variable(
-                        "W_F_diag", shape=[self._num_units], dtype=dtype)
+                    "W_F_diag", shape=[self._num_units], dtype=dtype)
                 w_i_diag = vs.get_variable(
-                        "W_I_diag", shape=[self._num_units], dtype=dtype)
+                    "W_I_diag", shape=[self._num_units], dtype=dtype)
                 w_o_diag = vs.get_variable(
-                        "W_O_diag", shape=[self._num_units], dtype=dtype)
+                    "W_O_diag", shape=[self._num_units], dtype=dtype)
 
             if self._use_peepholes:
                 c = (sigmoid(f + self._forget_bias + w_f_diag * c_prev) * c_prev +
@@ -549,8 +549,8 @@ class LSTMCell(RNNCell):
 
             if self._num_proj is not None:
                 concat_w_proj = _get_concat_variable(
-                        "W_P", [self._num_units, self._num_proj],
-                        dtype, self._num_proj_shards)
+                    "W_P", [self._num_units, self._num_proj],
+                    dtype, self._num_proj_shards)
 
                 m = math_ops.matmul(m, concat_w_proj)
                 if self._proj_clip is not None:
@@ -559,7 +559,7 @@ class LSTMCell(RNNCell):
                     # pylint: enable=invalid-unary-operand-type
 
         new_state = (LSTMStateTuple(c, m) if self._state_is_tuple
-                     else array_ops.concat(1, [c, m]))
+                     else array_ops.concat([c, m], 1))
         return m, new_state
 
 
@@ -766,11 +766,11 @@ class EmbeddingWrapper(RNNCell):
                     else:
                         data_type = state.dtype
                     self._embedding = vs.get_variable(
-                            "embedding", [self._embedding_classes, self._embedding_size],
-                            initializer=initializer,
-                            dtype=data_type)
+                        "embedding", [self._embedding_classes, self._embedding_size],
+                        initializer=initializer,
+                        dtype=data_type)
                 embedded = embedding_ops.embedding_lookup(
-                        self._embedding, array_ops.reshape(inputs, [-1]))
+                    self._embedding, array_ops.reshape(inputs, [-1]))
         return self._cell(embedded, state)
 
 
@@ -822,17 +822,17 @@ class MultiRNNCell(RNNCell):
                     if self._state_is_tuple:
                         if not nest.is_sequence(state):
                             raise ValueError(
-                                    "Expected state to be a tuple of length %d, but received: %s"
-                                    % (len(self.state_size), state))
+                                "Expected state to be a tuple of length %d, but received: %s"
+                                % (len(self.state_size), state))
                         cur_state = state[i]
                     else:
                         cur_state = array_ops.slice(
-                                state, [0, cur_state_pos], [-1, cell.state_size])
+                            state, [0, cur_state_pos], [-1, cell.state_size])
                         cur_state_pos += cell.state_size
                     cur_inp, new_state = cell(cur_inp, cur_state)
                     new_states.append(new_state)
         new_states = (tuple(new_states) if self._state_is_tuple
-                      else array_ops.concat(1, new_states))
+                      else array_ops.concat(new_states, 1))
         return cur_inp, new_states
 
 
@@ -919,25 +919,25 @@ def _linear(args, output_size, bias, bias_start=0.0, scope=None):
     # Now the computation.
     with vs.variable_scope(scope or "Linear"):
         matrix = vs.get_variable(
-                "Matrix", [total_arg_size, output_size], dtype=dtype)
+            "Matrix", [total_arg_size, output_size], dtype=dtype)
         if len(args) == 1:
             res = math_ops.matmul(args[0], matrix)
         else:
-            res = math_ops.matmul(array_ops.concat(1, args), matrix)
+            res = math_ops.matmul(array_ops.concat(args, 1), matrix)
         if not bias:
             return res
         bias_term = vs.get_variable(
-                "Bias", [output_size],
-                dtype=dtype,
-                initializer=init_ops.constant_initializer(
-                        bias_start, dtype=dtype))
+            "Bias", [output_size],
+            dtype=dtype,
+            initializer=init_ops.constant_initializer(
+                bias_start, dtype=dtype))
     return res + bias_term
 
 
 def orthogonal_initializer(shape=None, scale=1.0):
     """From Lasagne and Keras. Reference: Saxe et al., http://arxiv.org/abs/1312.6120"""
 
-    def _initializer(shape, dtype=tf.float32):
+    def _initializer(shape, dtype=tf.float32, partition_info=None):
         flat_shape = (shape[0], np.prod(shape[1:]))
         a = np.random.normal(0.0, 1.0, flat_shape)
         u, _, v = np.linalg.svd(a, full_matrices=False)
@@ -987,17 +987,17 @@ def _linear2(args, output_size, bias, bias_start=0.0, weight_initializer=None, s
     # Now the computation.
     with vs.variable_scope(scope or "Linear"):
         matrix = vs.get_variable(
-                "Matrix", [total_arg_size, output_size], dtype=dtype,
-                initializer=weight_initializer)
+            "Matrix", [total_arg_size, output_size], dtype=dtype,
+            initializer=weight_initializer)
         if len(args) == 1:
             res = math_ops.matmul(args[0], matrix)
         else:
-            res = math_ops.matmul(array_ops.concat(1, args), matrix)
+            res = math_ops.matmul(array_ops.concat(args, 1), matrix)
         if not bias:
             return res
         bias_term = vs.get_variable(
-                "Bias", [output_size],
-                dtype=dtype,
-                initializer=init_ops.constant_initializer(
-                        bias_start, dtype=dtype))
+            "Bias", [output_size],
+            dtype=dtype,
+            initializer=init_ops.constant_initializer(
+                bias_start, dtype=dtype))
     return res + bias_term

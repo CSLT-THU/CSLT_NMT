@@ -89,7 +89,7 @@ def _extract_argmax_and_embed(embedding,
     def loop_function(prev, prev_probs, beam_size, _):
         if output_projection is not None:
             prev = nn_ops.xw_plus_b(
-                    prev, output_projection[0], output_projection[1])
+                prev, output_projection[0], output_projection[1])
 
         prev = math_ops.log(nn_ops.softmax(prev))
         prev = nn_ops.bias_add(array_ops.transpose(prev), prev_probs)  # num_symbols*BEAM_SIZE
@@ -170,7 +170,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
         attention_vec_size = attn_size // 2  # Size of query vectors for attention.
 
         hidden = array_ops.reshape(
-                attention_states, [-1, attn_length, 1, attn_size])
+            attention_states, [-1, attn_length, 1, attn_size])
 
         # compute the initial hidden state of decoder
         initial_state = math_ops.tanh(linear(initial_state, state_size, False,
@@ -195,7 +195,7 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
                         ndims = q.get_shape().ndims
                         if ndims:
                             assert ndims == 2
-                    query = array_ops.concat(1, query_list)
+                    query = array_ops.concat(query_list, 1)
 
                 with variable_scope.variable_scope("AttnU"):
                     y = linear(query, attention_vec_size, False,
@@ -203,26 +203,26 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
                     y = array_ops.reshape(y, [-1, 1, 1, attention_vec_size])
                     # the additive attention is computed by v^T * tanh(...).
                     s = math_ops.reduce_sum(
-                            v * math_ops.tanh(hidden_features + y), [2, 3])
+                        v * math_ops.tanh(hidden_features + y), [2, 3])
                     s = array_ops.transpose(array_ops.transpose(s) - math_ops.reduce_max(s, [1]))
                     # sofxmax with mask
                     s = math_ops.exp(s)
                     s = math_ops.to_float(encoder_mask) * s
                     a = array_ops.transpose(array_ops.transpose(s) / math_ops.reduce_sum(s, [1]))
                     d = math_ops.reduce_sum(
-                            array_ops.reshape(a, [-1, attn_length, 1, 1]) * hidden,
-                            [1, 2])
+                        array_ops.reshape(a, [-1, attn_length, 1, 1]) * hidden,
+                        [1, 2])
                     ds.append(array_ops.reshape(d, [-1, attn_size]))
             return ds
 
         outputs = []
         output = None
         state = initial_state
-        out_state = array_ops.split(1, num_layers, state)[-1]
+        out_state = array_ops.split(state, num_layers, 1)[-1]
         prev = None
         symbols = []
         prev_probs = [0]
-        batch_attn_size = array_ops.pack([batch_size, attn_size])
+        batch_attn_size = array_ops.stack([batch_size, attn_size])
         attns = [array_ops.zeros(batch_attn_size, dtype=dtype)]
         for a in attns:  # Ensure the second shape of attention vectors is set.
             a.set_shape([None, attn_size])
@@ -248,13 +248,13 @@ def attention_decoder(encoder_mask, decoder_inputs, initial_state, attention_sta
                 attns = attention(out_state, scope="attention")
 
             # Run the RNN.
-            cinp = array_ops.concat(1, [inp, attns[0]])   # concatenate next input and the context vector
+            cinp = array_ops.concat([inp, attns[0]], 1)  # concatenate next input and the context vector
             out_state, state = cell(cinp, state)
 
             with variable_scope.variable_scope("AttnOutputProjection"):
                 output = linear([out_state] + [cinp], output_size, False)
                 output = array_ops.reshape(output, [-1, output_size // 2, 2])
-                output = math_ops.reduce_max(output, 2)    # maxout
+                output = math_ops.reduce_max(output, 2)  # maxout
 
             if loop_function is not None:
                 prev = output
@@ -346,10 +346,10 @@ def embedding_attention_decoder(encoder_mask, decoder_inputs, initial_state, att
 
         # loop function for generating
         loop_function = _extract_argmax_and_embed(
-                embedding,
-                num_symbols,
-                output_projection,
-                update_embedding_for_previous) if feed_previous else None
+            embedding,
+            num_symbols,
+            output_projection,
+            update_embedding_for_previous) if feed_previous else None
         emb_inp = [
             embedding_ops.embedding_lookup(embedding, i) for i in decoder_inputs]
         return attention_decoder(encoder_mask,
@@ -413,24 +413,24 @@ def embedding_attention_seq2seq(encoder_inputs, encoder_mask, decoder_inputs, ce
     with variable_scope.variable_scope(scope or "embedding_attention_seq2seq"):
         # word embeddings of source words
         embedding = variable_scope.get_variable(
-                "embedding", [num_encoder_symbols, embedding_size],
-                dtype=dtype,
-                initializer=init_ops.random_normal_initializer(0, 0.01, seed=SEED))
+            "embedding", [num_encoder_symbols, embedding_size],
+            dtype=dtype,
+            initializer=init_ops.random_normal_initializer(0, 0.01, seed=SEED))
         # wrap encoder cell with embedding
         encoder_cell = rnn_cell.EmbeddingWrapper(
-                cell, embedding_classes=num_encoder_symbols,
-                embedding_size=embedding_size, embedding=embedding)
+            cell, embedding_classes=num_encoder_symbols,
+            embedding_size=embedding_size, embedding=embedding)
 
         # get the sentence lengths of source sentences
         encoder_lens = math_ops.reduce_sum(encoder_mask, [1])
 
         # encode source sentences with a bidirectional_rnn encoder
         encoder_outputs, _, encoder_state = rnn.bidirectional_rnn(
-                encoder_cell, encoder_cell, encoder_inputs, sequence_length=encoder_lens, dtype=dtype)
+            encoder_cell, encoder_cell, encoder_inputs, sequence_length=encoder_lens, dtype=dtype)
         # First calculate a concatenation of encoder outputs.
         top_states = [array_ops.reshape(e, [-1, 1, 2 * cell.output_size])
                       for e in encoder_outputs]
-        attention_states = array_ops.concat(1, top_states)
+        attention_states = array_ops.concat(top_states, 1)
 
         # Decoder.
         output_size = None
@@ -469,14 +469,14 @@ def sequence_loss_by_example(logits, targets, weights,
     if len(targets) != len(logits) or len(weights) != len(logits):
         raise ValueError("Lengths of logits, weights, and targets must be the same "
                          "%d, %d, %d." % (len(logits), len(weights), len(targets)))
-    with ops.op_scope(logits + targets + weights, name,
-                      "sequence_loss_by_example"):
+    with ops.name_scope(name,
+                        "sequence_loss_by_example", logits + targets + weights):
         log_perp_list = []
         for logit, target, weight in zip(logits, targets, weights):
             if softmax_loss_function is None:
                 target = array_ops.reshape(target, [-1])
                 crossent = nn_ops.sparse_softmax_cross_entropy_with_logits(
-                        logit, target)
+                    labels=target, logits=logit)
             else:
                 crossent = softmax_loss_function(logit, target)
             log_perp_list.append(crossent * weight)
@@ -510,11 +510,11 @@ def sequence_loss(logits, targets, weights,
     Raises:
       ValueError: If len(logits) is different from len(targets) or len(weights).
     """
-    with ops.op_scope(logits + targets + weights, name, "sequence_loss"):
+    with ops.name_scope(name, "sequence_loss", logits + targets + weights):
         cost = math_ops.reduce_sum(sequence_loss_by_example(
-                logits, targets, weights,
-                average_across_timesteps=average_across_timesteps,
-                softmax_loss_function=softmax_loss_function))
+            logits, targets, weights,
+            average_across_timesteps=average_across_timesteps,
+            softmax_loss_function=softmax_loss_function))
         if average_across_batch:
             batch_size = array_ops.shape(targets[0])[0]
             return cost / math_ops.cast(batch_size, dtypes.float32)
@@ -568,7 +568,7 @@ def model_with_buckets(encoder_inputs, encoder_mask, decoder_inputs, targets, we
     losses = []
     outputs = []
     symbols = []  # to save the output of beam search
-    with ops.op_scope(all_inputs, name, "model_with_buckets"):
+    with ops.name_scope(name, "model_with_buckets", all_inputs):
         for j, bucket in enumerate(buckets):
             with variable_scope.variable_scope(variable_scope.get_variable_scope(),
                                                reuse=True if j > 0 else None):
@@ -578,11 +578,11 @@ def model_with_buckets(encoder_inputs, encoder_mask, decoder_inputs, targets, we
                 symbols.append(bucket_symbols)
                 if per_example_loss:
                     losses.append(sequence_loss_by_example(
-                            outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
-                            softmax_loss_function=softmax_loss_function))
+                        outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
+                        softmax_loss_function=softmax_loss_function))
                 else:
                     losses.append(sequence_loss(
-                            outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
-                            softmax_loss_function=softmax_loss_function))
+                        outputs[-1], targets[:bucket[1]], weights[:bucket[1]],
+                        softmax_loss_function=softmax_loss_function))
 
     return outputs, losses, symbols
